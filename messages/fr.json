@@ -1,0 +1,69 @@
+{
+  "app": {
+    "name": "MEME-INSPIRE",
+    "description": "Générez, personnalisez et partagez des mèmes inspirants en quelques clics. Laissez-vous surprendre par des combinaisons aléatoires d'images et de citations."
+  },
+  "nav": {
+    "home": "Accueil",
+    "gallery": "Galerie",
+    "about": "À propos",
+    "login": "Connexion",
+    "profile": "Profil",
+    "myMemes": "Mes Mèmes",
+    "favorites": "Favoris",
+    "logout": "Se déconnecter"
+  },
+  "memeGenerator": {
+    "tabs": {
+      "random": "Aléatoire",
+      "custom": "Personnalisé"
+    },
+    "random": {
+      "description": "Générez des mèmes aléatoires avec des citations inspirantes",
+      "button": "Générer un nouveau mème",
+      "generating": "Génération en cours..."
+    },
+    "custom": {
+      "topText": "Texte du haut",
+      "bottomText": "Texte du bas",
+      "fontSize": "Taille de police",
+      "textColor": "Couleur du texte",
+      "textShadow": "Ombre du texte",
+      "filter": "Filtre d'image"
+    },
+    "filters": {
+      "normal": "Normal",
+      "grayscale": "Noir et blanc",
+      "sepia": "Sépia",
+      "contrast": "Contraste",
+      "bright": "Lumineux"
+    },
+    "actions": {
+      "download": "Télécharger",
+      "share": "Partager",
+      "save": "Sauvegarder"
+    },
+    "toast": {
+      "downloadSuccess": "Mème téléchargé avec succès",
+      "shareSuccess": "Mème partagé avec succès",
+      "saveSuccess": "Mème sauvegardé dans la galerie"
+    }
+  },
+  "quotes": [
+    "La vie est ce qui arrive quand on est occupé à faire d'autres projets.",
+    "Le succès, c'est d'aller d'échec en échec sans perdre son enthousiasme.",
+    "La seule façon de faire du bon travail est d'aimer ce que vous faites.",
+    "Croyez en vous-même et tout devient possible.",
+    "Le plus grand risque est de ne prendre aucun risque.",
+    "La créativité, c'est l'intelligence qui s'amuse.",
+    "Chaque jour est une nouvelle chance de changer votre vie.",
+    "Soyez le changement que vous voulez voir dans le monde.",
+    "La persévérance est la clé du succès.",
+    "Rêvez grand et osez échouer."
+  ],
+  "language": {
+    "select": "Choisir la langue",
+    "en": "Anglais",
+    "fr": "Français"
+  }
+}
