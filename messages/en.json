@@ -29,7 +29,8 @@
       "fontSize": "Font size",
       "textColor": "Text color",
       "textShadow": "Text shadow",
-      "filter": "Image filter"
+      "filter": "Image filter",
+      "author": "Author"
     },
     "filters": {
       "normal": "Normal",
@@ -47,7 +48,16 @@
       "downloadSuccess": "Meme downloaded successfully",
       "shareSuccess": "Meme shared successfully",
       "saveSuccess": "Meme saved to gallery"
+    },
+    "share": {
+      "title": "Share your meme",
+      "description": "Choose a platform to share your creation."
     }
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "loading": "Loading..."
   },
   "quotes": [
     "Life is what happens when you're busy making other plans.",

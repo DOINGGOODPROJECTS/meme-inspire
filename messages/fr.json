@@ -29,7 +29,8 @@
       "fontSize": "Taille de police",
       "textColor": "Couleur du texte",
       "textShadow": "Ombre du texte",
-      "filter": "Filtre d'image"
+      "filter": "Filtre d'image",
+      "author": "Auteur"
     },
     "filters": {
       "normal": "Normal",
@@ -47,7 +48,16 @@
       "downloadSuccess": "Mème téléchargé avec succès",
       "shareSuccess": "Mème partagé avec succès",
       "saveSuccess": "Mème sauvegardé dans la galerie"
+    },
+    "share": {
+      "title": "Partager votre mème",
+      "description": "Choisissez une plateforme pour partager votre création."
     }
+  },
+  "common": {
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "loading": "Chargement..."
   },
   "quotes": [
     "La vie est ce qui arrive quand on est occupé à faire d'autres projets.",

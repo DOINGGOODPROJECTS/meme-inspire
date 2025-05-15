@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -10,20 +10,33 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { RefreshCw, Download, Share2, Save } from "lucide-react"
+import { RefreshCw, Download, Share2, Save, Twitter, Facebook, Send, Loader2, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language-context"
+import { getRandomQuote, getLocalQuote } from "@/lib/quote-service"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 export function MemeGenerator() {
   const { toast } = useToast()
-  const { t, messages } = useLanguage()
+  const { t, language, messages } = useLanguage()
   const [activeTab, setActiveTab] = useState("random")
   const [isLoading, setIsLoading] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const memeRef = useRef<HTMLDivElement>(null)
+  const [apiError, setApiError] = useState(false)
 
   // Définir les filtres d'image avec des valeurs non vides
   const IMAGE_FILTERS = [
-    { name: t("memeGenerator.filters.normal"), class: "none" }, // Changé de "" à "none"
+    { name: t("memeGenerator.filters.normal"), class: "none" },
     { name: t("memeGenerator.filters.grayscale"), class: "grayscale" },
     { name: t("memeGenerator.filters.sepia"), class: "sepia" },
     { name: t("memeGenerator.filters.contrast"), class: "contrast-125" },
@@ -37,7 +50,8 @@ export function MemeGenerator() {
     fontSize: 40,
     textColor: "#ffffff",
     textShadow: true,
-    filter: "none", // Changé de "" à "none"
+    filter: "none",
+    author: "",
   })
 
   // Générer un mème aléatoire
@@ -49,9 +63,41 @@ export function MemeGenerator() {
       const randomId = Math.floor(Math.random() * 1000)
       const imageUrl = `https://picsum.photos/id/${randomId}/800/600`
 
-      // Sélectionner une citation aléatoire
-      const quotes = messages.quotes || []
-      const randomQuote = quotes[Math.floor(Math.random() * quotes.length)]
+      // Obtenir une citation
+      let quoteText = ""
+      let authorText = ""
+
+      // Si l'API a échoué précédemment, utiliser directement les citations locales
+      if (!apiError) {
+        try {
+          const quote = await getRandomQuote()
+          if (quote) {
+            quoteText = quote.content
+            authorText = quote.author
+          } else {
+            // Si l'API renvoie null, utiliser les citations locales
+            const localQuotes = messages.quotes || []
+            const localQuote = getLocalQuote(localQuotes)
+            quoteText = localQuote.content
+            authorText = localQuote.author
+          }
+        } catch (error) {
+          console.error("Erreur lors de la récupération de la citation:", error)
+          setApiError(true) // Marquer l'API comme défaillante
+
+          // Utiliser les citations locales
+          const localQuotes = messages.quotes || []
+          const localQuote = getLocalQuote(localQuotes)
+          quoteText = localQuote.content
+          authorText = localQuote.author
+        }
+      } else {
+        // Utiliser directement les citations locales si l'API a déjà échoué
+        const localQuotes = messages.quotes || []
+        const localQuote = getLocalQuote(localQuotes)
+        quoteText = localQuote.content
+        authorText = localQuote.author
+      }
 
       // Sélectionner un filtre aléatoire
       const randomFilter = IMAGE_FILTERS[Math.floor(Math.random() * IMAGE_FILTERS.length)]
@@ -60,15 +106,16 @@ export function MemeGenerator() {
       setMeme({
         ...meme,
         backgroundImage: imageUrl,
-        topText: randomQuote,
+        topText: quoteText,
         bottomText: "",
         filter: randomFilter.class,
+        author: authorText,
       })
     } catch (error) {
       console.error("Erreur lors de la génération du mème:", error)
       toast({
         title: "Erreur",
-        description: "Impossible de générer un mème aléatoire.",
+        description: "Impossible de générer un mème aléatoire. Veuillez réessayer.",
         variant: "destructive",
       })
     } finally {
@@ -83,28 +130,161 @@ export function MemeGenerator() {
     }
   }, [activeTab])
 
-  // Télécharger le mème (version simplifiée)
-  const downloadMeme = () => {
-    toast({
-      title: t("memeGenerator.actions.download"),
-      description: t("memeGenerator.toast.downloadSuccess"),
+  // Fonction pour générer une image du mème
+  const generateMemeImage = async (): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!memeRef.current) {
+        reject("Élément mème non trouvé")
+        return
+      }
+
+      const canvas = canvasRef.current
+      if (!canvas) {
+        reject("Canvas non trouvé")
+        return
+      }
+
+      // Définir les dimensions du canvas
+      const memeElement = memeRef.current
+      const width = memeElement.offsetWidth
+      const height = memeElement.offsetHeight
+
+      canvas.width = width
+      canvas.height = height
+
+      // Utiliser html2canvas pour capturer le mème
+      import("html2canvas")
+        .then((html2canvas) => {
+          html2canvas
+            .default(memeElement, {
+              allowTaint: true,
+              useCORS: true,
+              scale: 2, // Meilleure qualité
+            })
+            .then((canvas) => {
+              const dataUrl = canvas.toDataURL("image/png")
+              resolve(dataUrl)
+            })
+            .catch((error) => {
+              console.error("Erreur lors de la génération de l'image:", error)
+              reject(error)
+            })
+        })
+        .catch((error) => {
+          console.error("Erreur lors du chargement de html2canvas:", error)
+          reject(error)
+        })
     })
   }
 
-  // Partager le mème (version simplifiée)
-  const shareMeme = () => {
-    toast({
-      title: t("memeGenerator.actions.share"),
-      description: t("memeGenerator.toast.shareSuccess"),
-    })
+  // Télécharger le mème
+  const downloadMeme = async () => {
+    try {
+      setIsLoading(true)
+      const dataUrl = await generateMemeImage()
+
+      // Créer un lien de téléchargement
+      const link = document.createElement("a")
+      link.href = dataUrl
+      link.download = `meme-inspire-${Date.now()}.png`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast({
+        title: t("memeGenerator.actions.download"),
+        description: t("memeGenerator.toast.downloadSuccess"),
+      })
+    } catch (error) {
+      console.error("Erreur lors du téléchargement:", error)
+      toast({
+        title: "Erreur",
+        description: "Impossible de télécharger le mème. Veuillez réessayer.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  // Sauvegarder le mème (version simplifiée)
-  const saveMeme = () => {
-    toast({
-      title: t("memeGenerator.actions.save"),
-      description: t("memeGenerator.toast.saveSuccess"),
-    })
+  // Ouvrir la boîte de dialogue de partage
+  const openShareDialog = () => {
+    setShareDialogOpen(true)
+  }
+
+  // Partager sur les réseaux sociaux
+  const shareMeme = async (platform: string) => {
+    try {
+      setIsLoading(true)
+      const dataUrl = await generateMemeImage()
+
+      // Texte à partager
+      const shareText = `${meme.topText} ${meme.author ? `- ${meme.author}` : ""}`
+
+      // Essayer d'abord l'API Web Share si disponible
+      if (navigator.share && platform === "native") {
+        try {
+          await navigator.share({
+            title: "MEME-INSPIRE",
+            text: shareText,
+            // Note: Web Share API ne permet pas de partager des images directement via dataURL
+            // Vous auriez besoin d'un serveur pour héberger l'image temporairement
+          })
+
+          setShareDialogOpen(false)
+          toast({
+            title: t("memeGenerator.actions.share"),
+            description: t("memeGenerator.toast.shareSuccess"),
+          })
+          return
+        } catch (error) {
+          console.error("Erreur lors du partage natif:", error)
+          // Continuer avec les méthodes alternatives
+        }
+      }
+
+      // Méthodes spécifiques à chaque plateforme
+      switch (platform) {
+        case "twitter":
+          window.open(
+            `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&hashtags=MemeInspire`,
+            "_blank",
+          )
+          break
+        case "facebook":
+          // Note: Facebook nécessite une URL pour partager, pas juste du texte
+          // Dans une application réelle, vous auriez besoin d'un serveur pour héberger l'image
+          window.open(
+            `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${encodeURIComponent(shareText)}`,
+            "_blank",
+          )
+          break
+        case "telegram":
+          window.open(
+            `https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(shareText)}`,
+            "_blank",
+          )
+          break
+        default:
+          // Copier le texte dans le presse-papiers
+          await navigator.clipboard.writeText(shareText)
+          toast({
+            title: "Texte copié",
+            description: "Le texte du mème a été copié dans le presse-papiers.",
+          })
+      }
+
+      setShareDialogOpen(false)
+    } catch (error) {
+      console.error("Erreur lors du partage:", error)
+      toast({
+        title: "Erreur",
+        description: "Impossible de partager le mème. Veuillez réessayer.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   // Fonction pour appliquer le filtre à l'image
@@ -114,10 +294,13 @@ export function MemeGenerator() {
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
+      {/* Canvas caché pour la génération d'images */}
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+
       {/* Panneau de prévisualisation */}
       <Card className="overflow-hidden">
         <CardContent className="p-0 relative">
-          <div className="relative aspect-[4/3] w-full overflow-hidden">
+          <div ref={memeRef} className="relative aspect-[4/3] w-full overflow-hidden">
             {meme.backgroundImage ? (
               <>
                 <Image
@@ -126,6 +309,7 @@ export function MemeGenerator() {
                   fill
                   className={cn("object-cover", getFilterClass(meme.filter))}
                   priority
+                  crossOrigin="anonymous"
                 />
                 <div className="absolute inset-0 flex flex-col justify-between p-4 text-center">
                   <h2
@@ -137,6 +321,17 @@ export function MemeGenerator() {
                   >
                     {meme.topText}
                   </h2>
+                  {meme.author && (
+                    <p
+                      className={cn("font-medium break-words px-2 py-1", meme.textShadow ? "text-shadow-lg" : "")}
+                      style={{
+                        fontSize: `${Math.max(16, meme.fontSize / 2)}px`,
+                        color: meme.textColor,
+                      }}
+                    >
+                      - {meme.author}
+                    </p>
+                  )}
                   <h2
                     className={cn("font-bold break-words px-2 py-1", meme.textShadow ? "text-shadow-lg" : "")}
                     style={{
@@ -175,8 +370,17 @@ export function MemeGenerator() {
               <div className="text-center">
                 <p className="text-muted-foreground mb-4">{t("memeGenerator.random.description")}</p>
                 <Button onClick={generateRandomMeme} className="w-full" disabled={isLoading}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  {isLoading ? t("memeGenerator.random.generating") : t("memeGenerator.random.button")}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t("memeGenerator.random.generating")}
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      {t("memeGenerator.random.button")}
+                    </>
+                  )}
                 </Button>
               </div>
 
@@ -195,6 +399,12 @@ export function MemeGenerator() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {apiError && (
+                <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-200 text-sm">
+                  <p>Les citations sont actuellement générées localement car l'API externe n'est pas disponible.</p>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="custom" className="space-y-6">
@@ -205,6 +415,16 @@ export function MemeGenerator() {
                     id="top-text"
                     value={meme.topText}
                     onChange={(e) => setMeme({ ...meme, topText: e.target.value })}
+                    className="mt-1.5"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="author">Auteur</Label>
+                  <Input
+                    id="author"
+                    value={meme.author}
+                    onChange={(e) => setMeme({ ...meme, author: e.target.value })}
                     className="mt-1.5"
                   />
                 </div>
@@ -281,23 +501,79 @@ export function MemeGenerator() {
           {/* Actions */}
           <div className="mt-8 space-y-4">
             <div className="grid grid-cols-2 gap-2">
-              <Button onClick={downloadMeme} variant="outline">
-                <Download className="mr-2 h-4 w-4" />
+              <Button onClick={downloadMeme} variant="outline" disabled={isLoading}>
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                 {t("memeGenerator.actions.download")}
               </Button>
-              <Button onClick={shareMeme} variant="outline">
-                <Share2 className="mr-2 h-4 w-4" />
+              <Button onClick={openShareDialog} variant="outline" disabled={isLoading}>
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
                 {t("memeGenerator.actions.share")}
               </Button>
             </div>
 
-            <Button onClick={saveMeme} className="w-full">
+            <Button
+              onClick={() =>
+                toast({ title: t("memeGenerator.actions.save"), description: t("memeGenerator.toast.saveSuccess") })
+              }
+              className="w-full"
+            >
               <Save className="mr-2 h-4 w-4" />
               {t("memeGenerator.actions.save")}
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Boîte de dialogue de partage */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{t("memeGenerator.share.title", "Partager votre mème")}</DialogTitle>
+            <DialogDescription>
+              {t("memeGenerator.share.description", "Choisissez une plateforme pour partager votre création.")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-3 gap-4 py-4">
+            <Button
+              variant="outline"
+              className="flex flex-col items-center justify-center h-24"
+              onClick={() => shareMeme("twitter")}
+              disabled={isLoading}
+            >
+              <Twitter className="h-8 w-8 mb-2" />
+              <span>Twitter</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="flex flex-col items-center justify-center h-24"
+              onClick={() => shareMeme("facebook")}
+              disabled={isLoading}
+            >
+              <Facebook className="h-8 w-8 mb-2" />
+              <span>Facebook</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="flex flex-col items-center justify-center h-24"
+              onClick={() => shareMeme("telegram")}
+              disabled={isLoading}
+            >
+              <Send className="h-8 w-8 mb-2" />
+              <span>Telegram</span>
+            </Button>
+          </div>
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShareDialogOpen(false)}>
+              <X className="mr-2 h-4 w-4" />
+              {t("common.cancel", "Annuler")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
