@@ -24,7 +24,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { sendMemeToChannel } from '@/lib/discord-service';
 
 export function MemeGenerator() {
   const { toast } = useToast()
@@ -35,6 +34,21 @@ export function MemeGenerator() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const memeRef = useRef<HTMLDivElement>(null)
   const [apiError, setApiError] = useState(false)
+
+  const sendToDiscordServer = async (buffer: Buffer) => {
+    const base64 = Buffer.from(buffer).toString("base64");
+    const res = await fetch("/api/send-meme", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        buffer: base64,
+        topText: meme.topText,
+        author: meme.author,
+      }),
+    });
+
+    if (!res.ok) throw new Error("Échec de l’envoi au serveur Discord");
+  };
 
   // Définir les filtres d'image avec des valeurs non vides
   const IMAGE_FILTERS = [
@@ -115,7 +129,7 @@ export function MemeGenerator() {
       })
 
       const imageBuffer = await generateMemeImage();
-      await sendMemeToChannel(imageBuffer, meme.topText, meme.author);
+      await sendToDiscordServer(imageBuffer);
     } catch (error) {
       console.error("Erreur lors de la génération du mème:", error)
       toast({
@@ -220,7 +234,7 @@ export function MemeGenerator() {
       
       // Envoi à Discord
       try {
-        await sendMemeToChannel(imageBuffer, meme.topText, meme.author);
+        await sendToDiscordServer(imageBuffer);
         toast({
           title: t("memeGenerator.actions.download"),
           description: "Mème téléchargé et partagé sur Discord avec succès",
