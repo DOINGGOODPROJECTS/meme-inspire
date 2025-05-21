@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { RefreshCw, Download, Share2, Save, Twitter, Facebook, Send, Loader2, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language-context"
 import { getRandomQuote, getLocalQuote } from "@/lib/quote-service"
@@ -23,6 +24,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { sendMemeToChannel } from '@/lib/discord-service';
 
 export function MemeGenerator() {
   const { toast } = useToast()
@@ -111,6 +113,9 @@ export function MemeGenerator() {
         filter: randomFilter.class,
         author: authorText,
       })
+
+      const imageBuffer = await generateMemeImage();
+      await sendMemeToChannel(imageBuffer, meme.topText, meme.author);
     } catch (error) {
       console.error("Erreur lors de la génération du mème:", error)
       toast({
@@ -131,7 +136,7 @@ export function MemeGenerator() {
   }, [activeTab])
 
   // Fonction pour générer une image du mème
-  const generateMemeImage = async (): Promise<string> => {
+  const generateMemeImage = async (): Promise<Buffer> => {
     return new Promise((resolve, reject) => {
       if (!memeRef.current) {
         reject("Élément mème non trouvé")
@@ -162,8 +167,21 @@ export function MemeGenerator() {
               scale: 2, // Meilleure qualité
             })
             .then((canvas) => {
-              const dataUrl = canvas.toDataURL("image/png")
-              resolve(dataUrl)
+              // const dataUrl = canvas.toDataURL("image/png")
+              // resolve(dataUrl)
+
+              canvas.toBlob(blob => {
+                if (!blob) {
+                  reject("Erreur de conversion en Blob");
+                  return;
+                }
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  const buffer = Buffer.from(reader.result as ArrayBuffer);
+                  resolve(buffer);
+                };
+                reader.readAsArrayBuffer(blob);
+              }, 'image/png');
             })
             .catch((error) => {
               console.error("Erreur lors de la génération de l'image:", error)
@@ -180,32 +198,53 @@ export function MemeGenerator() {
   // Télécharger le mème
   const downloadMeme = async () => {
     try {
-      setIsLoading(true)
-      const dataUrl = await generateMemeImage()
-
-      // Créer un lien de téléchargement
-      const link = document.createElement("a")
-      link.href = dataUrl
-      link.download = `meme-inspire-${Date.now()}.png`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      toast({
-        title: t("memeGenerator.actions.download"),
-        description: t("memeGenerator.toast.downloadSuccess"),
-      })
+      setIsLoading(true);
+      
+      // Générer l'image du mème
+      const imageBuffer = await generateMemeImage();
+      
+      // Convertir le Buffer en URL pour le téléchargement
+      const blob = new Blob([imageBuffer], { type: 'image/png' });
+      const dataUrl = URL.createObjectURL(blob);
+      
+      // Téléchargement local
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `meme-inspire-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Libérer la mémoire
+      setTimeout(() => URL.revokeObjectURL(dataUrl), 100);
+      
+      // Envoi à Discord
+      try {
+        await sendMemeToChannel(imageBuffer, meme.topText, meme.author);
+        toast({
+          title: t("memeGenerator.actions.download"),
+          description: "Mème téléchargé et partagé sur Discord avec succès",
+        });
+      } catch (discordError) {
+        console.error("Erreur Discord:", discordError);
+        toast({
+          title: t("memeGenerator.actions.download"),
+          description: "Mème téléchargé mais échec de l'envoi à Discord",
+          variant: "default",
+        });
+      }
+      
     } catch (error) {
-      console.error("Erreur lors du téléchargement:", error)
+      console.error("Erreur lors du téléchargement:", error);
       toast({
         title: "Erreur",
-        description: "Impossible de télécharger le mème. Veuillez réessayer.",
+        description: "Impossible de générer le mème. Veuillez réessayer.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Ouvrir la boîte de dialogue de partage
   const openShareDialog = () => {
