@@ -178,7 +178,7 @@ export function MemeGenerator() {
             .default(memeElement, {
               allowTaint: true,
               useCORS: true,
-              scale: 2, // Meilleure qualité
+              scale: 1, // Meilleure qualité
             })
             .then((canvas) => {
               // const dataUrl = canvas.toDataURL("image/png")
@@ -195,7 +195,7 @@ export function MemeGenerator() {
                   resolve(buffer);
                 };
                 reader.readAsArrayBuffer(blob);
-              }, 'image/png');
+              }, 'image/jpeg', 0.7);
             })
             .catch((error) => {
               console.error("Erreur lors de la génération de l'image:", error)
@@ -218,13 +218,13 @@ export function MemeGenerator() {
       const imageBuffer = await generateMemeImage();
       
       // Convertir le Buffer en URL pour le téléchargement
-      const blob = new Blob([imageBuffer], { type: 'image/png' });
+      const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
       const dataUrl = URL.createObjectURL(blob);
       
       // Téléchargement local
       const link = document.createElement("a");
       link.href = dataUrl;
-      link.download = `meme-inspire-${Date.now()}.png`;
+      link.download = `meme-inspire-${Date.now()}.jpeg`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
