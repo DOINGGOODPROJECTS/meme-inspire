@@ -35,15 +35,15 @@ export function MemeGenerator() {
   const memeRef = useRef<HTMLDivElement>(null)
   const [apiError, setApiError] = useState(false)
 
-  const sendToDiscordServer = async (buffer: Buffer) => {
+  const sendToDiscordServer = async (buffer: Buffer, topText: string, author?: string) => {
     const base64 = Buffer.from(buffer).toString("base64");
     const res = await fetch("/api/send-meme", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         buffer: base64,
-        topText: meme.topText,
-        author: meme.author,
+        topText: topText,
+        author: author,
       }),
     });
 
@@ -129,7 +129,7 @@ export function MemeGenerator() {
       })
 
       const imageBuffer = await generateMemeImage();
-      await sendToDiscordServer(imageBuffer);
+      await sendToDiscordServer(imageBuffer, quoteText || "Inspiration du jour 💡", authorText || "Anonyme");
     } catch (error) {
       console.error("Erreur lors de la génération du mème:", error)
       toast({
@@ -230,24 +230,7 @@ export function MemeGenerator() {
       document.body.removeChild(link);
       
       // Libérer la mémoire
-      setTimeout(() => URL.revokeObjectURL(dataUrl), 100);
-      
-      // Envoi à Discord
-      try {
-        await sendToDiscordServer(imageBuffer);
-        toast({
-          title: t("memeGenerator.actions.download"),
-          description: "Mème téléchargé et partagé sur Discord avec succès",
-        });
-      } catch (discordError) {
-        console.error("Erreur Discord:", discordError);
-        toast({
-          title: t("memeGenerator.actions.download"),
-          description: "Mème téléchargé mais échec de l'envoi à Discord",
-          variant: "default",
-        });
-      }
-      
+      setTimeout(() => URL.revokeObjectURL(dataUrl), 100);     
     } catch (error) {
       console.error("Erreur lors du téléchargement:", error);
       toast({
